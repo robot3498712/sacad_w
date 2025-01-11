@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
-Semiautomatic Cover Art Dispatcher / Wrapper :: v.0.1.21 | author: robot
+Semiautomatic Cover Art Dispatcher / Wrapper :: v.0.2.0 | author: robot
 	feat. sacad (github.com/desbma/sacad) wrapper | extract from tags | symlink existing | image editing
 	does not modify or update any data source
 
@@ -43,8 +43,8 @@ sacad
 	slow; may consider threading/multiprocessing
 '''
 
-import sys, os, io, time, datetime, shutil, json, re, zipfile
-import subprocess, hashlib, uuid, imghdr, PIL, argparse
+import sys, os, io, time, datetime, shutil, json, re, zipfile, traceback
+import subprocess, hashlib, uuid, filetype, PIL, argparse
 import socket, ssl, functools, readline, _thread, threading
 import _config as _
 from PIL import Image
@@ -98,15 +98,15 @@ class COM():
 
 	def chat(self, payload):
 		if len(payload) > 4096:
-			self._send(payload, hv_addr, he_port)
+			self._send(payload, hv_addr, hv_port)
 		elif payload.startswith(b'dir='):
 			self._chat(payload, _addr=he_addr, _port=he_port)
 		elif payload.startswith(b'sig=kill'):
 			self._chat(payload, _addr=he_addr, _port=he_port)
-			self._chat(payload, _addr=hv_addr, _port=he_port)
+			self._chat(payload, _addr=hv_addr, _port=hv_port)
 		elif payload.startswith(b'sig=ping'):
 			self._chat(payload, _addr=he_addr, _port=he_port, _verbose=True)
-			self._chat(payload, _addr=hv_addr, _port=he_port, _verbose=True)
+			self._chat(payload, _addr=hv_addr, _port=hv_port, _verbose=True)
 		else:
 			self._chat(payload, _addr=hv_addr, _port=hv_port)
 
@@ -117,6 +117,7 @@ class COM():
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 			with self.ssl_context.wrap_socket(sock, server_side=False) as h_sock:
 				try:
+					h_sock.settimeout(_.cfg.HELP_CLIENTS[_addr]['TIMEOUT'])
 					h_sock.connect((_addr, _port))
 					if _verbose:
 						dbg.append("%s:%s" % (_addr, _port))
@@ -139,6 +140,7 @@ class COM():
 		if _addr is None or _port is None: return
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 			with self.ssl_context.wrap_socket(sock, server_side=False) as h_sock:
+				h_sock.settimeout(_.cfg.HELP_CLIENTS[_addr]['TIMEOUT'])
 				try: h_sock.connect((_addr, _port))
 				except: pass
 				else:
@@ -756,15 +758,15 @@ def extractEmbedded(_root, _audiofile, _mtime):
 	])
 	p.wait()
 	if os.path.isfile(_coverfile):
-		_type = imghdr.what(_coverfile)
+		_type = filetype.guess(_coverfile)
 		if _type is not None:
 			# tbd: add error checks to file ops (re_move)
-			if (_type == 'jpg' or _type == 'jpeg'):
+			if (_type.extension == 'jpg' or _type.extension == 'jpeg'):
 				p = subprocess.Popen([_.cfg.BIN['jpegoptim'], '-q', '--strip-all', _coverfile],
 					stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
 				)
 				p.wait()
-			elif (_type == 'png'):
+			elif (_type.extension == 'png'):
 				_coverfileextf = _coverfile.replace(".jpg", ".png")
 				os.rename(_coverfile, _coverfileextf)
 				_coverfile = _coverfileextf
@@ -779,7 +781,7 @@ def extractEmbedded(_root, _audiofile, _mtime):
 				if os.path.isfile(_coverfile): os.remove(_coverfile)
 			else:
 				# processing done; move to final destination
-				_coverfileDest = os.path.join(_root, "folder.%s" % (_type,))
+				_coverfileDest = os.path.join(_root, "folder.%s" % (_type.extension,))
 				# final check
 				if os.path.isfile(_coverfileDest):
 					printl("notice: cover target exists, not replacing\t%s" % (_coverfileDest,))
@@ -880,17 +882,17 @@ def goInteractive():
 			_imgx += 1
 			_if = os.path.join(obj[_id]['path'], obj[_id]['img'][_imgx])
 			if not os.path.isfile(_if): continue
-			_type = imghdr.what(_if)
+			_type = filetype.guess(_if)
 			if _type is not None:
-				if (_type == 'jpg' or _type == 'jpeg'): _type = 'jpg'
-				elif (_type == 'png'): pass
+				if (_type.extension == 'jpg' or _type.extension == 'jpeg'): pass
+				elif (_type.extension == 'png'): pass
 				else:
 					print(colored("error: unsupported image file type: %s" % (_if,), 'red'))
 					continue
 			else:
 				print(colored("error: corrupt image file: %s" % (_if,), 'red'))
 				continue
-			_of = "folder.%s" % (_type,)
+			_of = "folder.%s" % (_type.extension,)
 			_cx = len(obj[_id]['path'])
 			print(colored(_if[0:_cx], 'magenta') + colored(_if[_cx:], 'yellow'))
 			if os.path.isfile(_of):
@@ -1001,7 +1003,7 @@ def goInteractive():
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description='Semiautomatic Cover Art Dispatcher')
-	parser.add_argument('-v', '--version', action='version', version='0.1.21')
+	parser.add_argument('-v', '--version', action='version', version='0.2.0')
 	parser.add_argument('--tlsgenkeys', help='Produce certificates and keys for secure socket communication.',
 		action='store_true', required=False
 	)
@@ -1127,13 +1129,14 @@ if __name__ == "__main__":
 		except KeyboardInterrupt:
 			print("Shut down on SIGINT")
 		except Exception as e:
-			print(f"Shut down on RUNTIME_ERROR: {e}")
+			print(f"Shut down on RUNTIME_ERROR: {e}\n{traceback.format_exc()}")
 		finally:
 			com.chat('sig=int'.encode('utf-8'))
 
 	if args['library']:
 		if not os.path.isdir(args['library']):
-			args['library'] = Mapper(args['library']).map()
+			mapper = Mapper(args['library'])
+			args['library'] = mapper.map()
 			if not os.path.isdir(args['library']):
 				print(colored("error: invalid folder/library: %s\nusage: sacad_w.py -d <path>" % (args['library'],), 'red'))
 				_exit(1, True)
@@ -1150,7 +1153,7 @@ if __name__ == "__main__":
 		except KeyboardInterrupt:
 			print("Shut down on SIGINT")
 		except Exception as e:
-			print(f"Shut down on RUNTIME_ERROR: {e}")
+			print(f"Shut down on RUNTIME_ERROR: {e}\n{traceback.format_exc()}")
 		finally:
 			if (scan is not None and scan.is_alive()):
 				try:
@@ -1164,3 +1167,4 @@ if __name__ == "__main__":
 			_exit(0)
 
 	_exit(0, True)
+
