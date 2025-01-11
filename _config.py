@@ -49,15 +49,15 @@ cfg.TSCAN = 31104000
 
 # ---------------- client config
 # all paths: omit trailing slash
-# if using network share be sure to escape slashes
+# if using network share be sure to escape slashes (use r'aw strings')
 
 # tmp folder configured in sacad_w (where fetched cover art is stored)
-cfg.HELP_TMP = '\\\\MAPPED_DRIVE\\data_folder'
+cfg.HELP_TMP = r'\\MAPPED_DRIVE\data_folder'
 
 # rewrite remote to local path; bi-directional lookup
 cfg.HELP_MAP = {
-	'/home/library/Music': '\\\\MAPPED_DRIVE\\data_folder\\Music',
-	'/home/library/Another-Music-Folder': '\\\\MAPPED_DRIVE\\data_folder\\Another-Music-Folder',
+	r'/home/library/Music': r'\\MAPPED_DRIVE\data_folder\Music',
+	r'/home/library/Another-Music-Folder': r'\\MAPPED_DRIVE\data_folder\Another-Music-Folder',
 }
 
 # <bool>prefer networking for image previews
@@ -76,13 +76,15 @@ cfg.HELP_CLIENTS = {
 		'IS_VIEWER': False,
 		'IS_EXPLORER': True,
 		'CLIP': True,
-		'VIEWER_BIN': 'C:\Program Files (x86)\IrfanView\i_view32.exe'
+		'VIEWER_BIN': r'C:\Program Files (x86)\IrfanView\i_view32.exe',
+		'TIMEOUT': 1
 	},
 	'192.168.0.2': {
 		'BIND_PORT': 33321,
 		'IS_VIEWER': True,
 		'IS_EXPLORER': False,
 		'CLIP': False,
-		'VIEWER_BIN': 'C:\Program Files (x86)\IrfanView\i_view32.exe'
+		'VIEWER_BIN': r'C:\Program Files (x86)\IrfanView\i_view32.exe',
+		'TIMEOUT': 1
 	}
 }

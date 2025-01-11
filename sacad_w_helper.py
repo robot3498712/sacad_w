@@ -25,17 +25,17 @@ def termProcess(p, _pid):
 			except: pass
 	return None
 
-# https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib
-def getLocalIP():
-	try:
-		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		s.connect(("8.8.8.8", 80))
-		_ip = s.getsockname()[0]
-		s.close()
-	except:
-		return '127.0.0.1'
-	else:
-		return _ip
+def getLocalIPs():
+	_ips = []
+	hostname = socket.gethostname()
+	# Get all IP addresses associated with the hostname
+	ip_addresses = socket.getaddrinfo(hostname, None)
+	for address in ip_addresses:
+		ip = address[4][0]
+		# Filter out IPv6 addresses and loopback addresses
+		if '.' in ip and not ip.startswith("127."):
+			_ips.append(ip)
+	return _ips if len(_ips) else ['127.0.0.1']
 
 class Mapper():
 	def __init__(self, str=None):
@@ -251,10 +251,13 @@ class COM(threading.Thread):
 if __name__ == "__main__":
 	print("sacad_w :: helper\npress ctrl+c to exit")
 
-	_ip = getLocalIP()
+	_ips = getLocalIPs()
+	for _ip in _ips:
+		if _ip in _.cfg.HELP_CLIENTS: break
 	if _ip not in _.cfg.HELP_CLIENTS:
-		print("error: no config for %s" % (_ip,))
+		print("error: no config for %s" % (', '.join(_ips),))
 		sys.exit(1)
+	print(f"listening on {_ip}")
 
 	BIND_PORT = _.cfg.HELP_CLIENTS[_ip]['BIND_PORT']
 	VIEWER_BIN = _.cfg.HELP_CLIENTS[_ip]['VIEWER_BIN']
